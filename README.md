@@ -20,3 +20,7 @@ Results in:
 ## Running Tests
 
 `make tests`
+
+## Build JAR
+
+`make make target/light.csv.jar`
