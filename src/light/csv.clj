@@ -29,16 +29,29 @@
          (recur (subs s-to-parse next-entry-index) (conj result entry))
          (conj result entry))))))
 
+(defn remove-bom
+  [string]
+  (subs string 1))
+
 (defn parse-from-buffer
   "Given a buffer, it return a lazy sequence"
-  [buffer & {:keys [headers? keyed?]}]
-  (let [lines (line-seq buffer)
-        headers (when headers? (parse-record (first lines)))
+  [buffer & {:keys [headers? keyed? remove-bom?]}]
+  (let [all-lines (line-seq buffer)
+        headers (when headers? (parse-record (-> all-lines
+                                                 first
+                                                 (cond-> remove-bom? remove-bom))))
         headers (if keyed?
                   (map #(keyword (-> % str/trim str/lower-case (str/replace #" " "-"))) headers)
-                  headers)]
+                  headers)
+        lines (cond
+                headers? (rest all-lines)
+                remove-bom? (cons (-> (first all-lines)
+                                      remove-bom)
+                                  (rest all-lines))
+                :else all-lines)]
+
     (if headers?
-      (pmap #(zipmap headers (parse-record %)) (rest lines))
+      (pmap #(zipmap headers (parse-record %)) lines)
       (pmap #(parse-record %) lines))))
 
 (defn ^:private perform-parse
@@ -50,12 +63,12 @@
 
 (defn parse-string
   "Given a string, it return a map.
-  `opts` can receive the following options: :headers?, :keyed?"
+  `opts` can receive the following options: :headers?, :keyed?, :remove-bom?"
   [s & opts]
   (perform-parse (char-array s) opts))
 
 (defn parse-file
   "Given a file path, returns a map.
-  `opts` can receive the following options: :headers?, :keyed?"
+  `opts` can receive the following options: :headers?, :keyed?, :remove-bom?"
   [file-path & opts]
   (perform-parse file-path opts))
