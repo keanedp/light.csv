@@ -8,7 +8,4 @@
                              {:git/url "https://github.com/cognitect-labs/test-runner"
                               :sha     "76568540e7f40268ad2b646110f237a60295fa3c"}}
                 :main-opts  ["-m" "cognitect.test-runner"
-                             "-d" "test"]}
-         :depstar
-               {:extra-deps
-                 {seancorfield/depstar {:mvn/version "0.3.4"}}}}}
+                             "-d" "test"]}}}
