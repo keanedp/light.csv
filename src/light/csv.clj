@@ -5,29 +5,30 @@
 (def ^:private ^:const separator \,)
 (def ^:private ^:const quote \")
 
-(defn ^:private transform-data-value
+(defn- transform-data-value
   [value]
   (if (str/blank? (str value))
     nil
     value))
 
-(defn ^:private parse-record
-  ([s] (parse-record s []))
-  ([[first-char & rest-chars :as s] result]
-   (if (= first-char separator)
-     (recur rest-chars (conj result nil))
-     (let [delim (if (= first-char quote) quote separator)
-           s-to-parse (->> (if (= delim separator) s rest-chars)
-                           (apply str))
-           entry (->> (take-while #(not= delim %)
-                                  (seq s-to-parse))
-                      (apply str)
-                      transform-data-value)
-           next-entry-index (-> (count entry) inc)
-           has-more-to-process? (< next-entry-index (count s))]
-       (if has-more-to-process?
-         (recur (subs s-to-parse next-entry-index) (conj result entry))
-         (conj result entry))))))
+(defn- parse-record
+  [string-to-parse]
+  (loop [[first-char & rest-chars :as s] string-to-parse
+         result []]
+    (if (= first-char separator)
+      (recur rest-chars (conj result nil))
+      (let [delimiter (if (= first-char quote) quote separator)
+            s-to-parse (->> (if (= delimiter separator) s rest-chars)
+                         (apply str))
+            entry (->> (take-while #(not= delimiter %)
+                         (seq s-to-parse))
+                    (apply str)
+                    transform-data-value)
+            next-entry-index (-> (count entry) inc)
+            has-more-to-process? (< next-entry-index (count s))]
+        (if has-more-to-process?
+          (recur (subs s-to-parse next-entry-index) (conj result entry))
+          (conj result entry))))))
 
 (defn remove-bom
   [string]
@@ -37,12 +38,10 @@
   "Given a buffer, it return a lazy sequence"
   [buffer & {:keys [headers? keyed? remove-bom?]}]
   (let [all-lines (line-seq buffer)
-        headers (when headers? (parse-record (-> all-lines
-                                                 first
-                                                 (cond-> remove-bom? remove-bom))))
-        headers (if keyed?
-                  (map #(keyword (-> % str/trim str/lower-case (str/replace #" " "-"))) headers)
-                  headers)
+        headers (-> (when headers? (parse-record (-> all-lines
+                                                   first
+                                                   (cond-> remove-bom? remove-bom))))
+                    (cond->> keyed? (map #(keyword (-> % str/trim str/lower-case (str/replace #" " "-"))))))
         lines (cond
                 headers? (rest all-lines)
                 remove-bom? (cons (-> (first all-lines)
@@ -54,7 +53,7 @@
       (pmap #(zipmap headers (parse-record %)) lines)
       (pmap #(parse-record %) lines))))
 
-(defn ^:private perform-parse
+(defn- perform-parse
   "Opens a reader and parses content"
   [source opts]
   (with-open [buffer (io/reader source)]
